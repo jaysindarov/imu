@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IMU — Interactive World Globe</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="globe"></div>
+
+  <!-- Control panel -->
+  <aside class="panel" id="panel">
+    <header class="panel-header">
+      <h1>🌍 World Explorer</h1>
+      <p class="subtitle">Interactive globe of global living data</p>
+    </header>
+
+    <nav class="modes">
+      <button class="mode-btn active" data-mode="countries">
+        <span class="mode-icon">🗺️</span>
+        <span class="mode-text">
+          <strong>Countries</strong>
+          <small>Borders &amp; territories</small>
+        </span>
+      </button>
+      <button class="mode-btn" data-mode="salaries">
+        <span class="mode-icon">💰</span>
+        <span class="mode-text">
+          <strong>City Salaries</strong>
+          <small>Avg net salary towers</small>
+        </span>
+      </button>
+      <button class="mode-btn" data-mode="crime">
+        <span class="mode-icon">🛡️</span>
+        <span class="mode-text">
+          <strong>Safety / Crime</strong>
+          <small>Homicide rate per 100k</small>
+        </span>
+      </button>
+      <button class="mode-btn" data-mode="cost">
+        <span class="mode-icon">🛒</span>
+        <span class="mode-text">
+          <strong>Living Cost</strong>
+          <small>Price level index</small>
+        </span>
+      </button>
+    </nav>
+
+    <div class="legend" id="legend"></div>
+
+    <div class="ranking" id="ranking"></div>
+
+    <footer class="panel-footer">
+      <label class="toggle">
+        <input type="checkbox" id="rotateToggle" checked />
+        <span>Auto-rotate</span>
+      </label>
+      <p class="source" id="source"></p>
+    </footer>
+  </aside>
+
+  <!-- Loading overlay -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p id="loaderText">Loading globe…</p>
+  </div>
+
+  <script src="https://unpkg.com/globe.gl@2.34.5/dist/globe.gl.min.js"></script>
+  <script src="js/cities-data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

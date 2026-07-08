@@ -9,8 +9,8 @@
  *  - City salaries: Numbeo 2024 published averages (js/cities-data.js)
  * ============================================================ */
 
-const COUNTRIES_URL =
-  "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson";
+// bundled locally — external raw.githubusercontent.com is blocked on some networks
+const COUNTRIES_URL = "data/countries.geojson";
 const WB = (indicator) =>
   `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&date=2014:2025&per_page=20000`;
 const WB_CRIME = "VC.IHR.PSRC.P5"; // UNODC intentional homicides per 100k
@@ -499,9 +499,20 @@ async function boot() {
   initGlobe();
 
   $("loaderText").textContent = "Loading country borders…";
-  const geo = await fetch(COUNTRIES_URL).then((r) => r.json());
-  countries = geo.features.filter((f) => f.properties.ISO_A2 !== "AQ"); // skip Antarctica
-  buildCountryLabels();
+  try {
+    const geo = await fetch(COUNTRIES_URL).then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+    countries = geo.features.filter((f) => f.properties.ISO_A2 !== "AQ"); // skip Antarctica
+    buildCountryLabels();
+  } catch (e) {
+    console.error("Border data failed:", e);
+    $("loaderText").innerHTML =
+      "Could not load country borders.<br>Check your connection and " +
+      '<a href="javascript:location.reload()" style="color:#4da3ff">reload</a>.';
+    return; // keep loader visible with the error message
+  }
 
   $("loaderText").textContent = "Fetching live World Bank data…";
   try {

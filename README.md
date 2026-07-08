@@ -1,6 +1,6 @@
 # IMU — Interactive World Globe
 
-**Live demo: https://imu-xi.vercel.app**
+**Live demo: https://earthglobe.site/**
 
 ## About
 

@@ -1,6 +1,24 @@
 # IMU — Interactive World Globe
 
-Google Earth-style interactive 3D globe with four data views. No build step, no framework — plain HTML/CSS/JS + [globe.gl](https://globe.gl) (three.js) from CDN.
+**Live demo: https://imu-xi.vercel.app**
+
+## About
+
+IMU is a Google Earth-style web application for exploring how the world lives. It renders an interactive 3D globe you can spin, zoom and click, and overlays it with real, officially sourced socio-economic data in four switchable views: country borders with names, average city salaries visualized as 3D towers (with the salary figure floating on top of each tower), country safety based on official UNODC homicide statistics, and the cost of living across the globe as a price-level choropleth.
+
+The goal is a simple but highly interactive way to answer questions like *"Where are salaries highest?"*, *"Which countries are the safest?"* and *"Where is life cheapest relative to the US?"* — all on one globe, with no fake or made-up numbers. Crime and cost data are fetched **live from the official World Bank API** on every page load, so the figures always reflect the most recent published year per country. City salary data is bundled from Numbeo's 2024 published averages, with the source attributed in the UI.
+
+Everything is intentionally lightweight: no build step, no framework, no backend — plain HTML/CSS/JS with [globe.gl](https://globe.gl) (three.js) loaded from a CDN. The whole app is four small files and deploys as a static site anywhere.
+
+### Features
+
+- 🌍 Fully interactive globe — drag to spin, scroll to zoom, slow auto-rotation (toggleable)
+- 🗺️ Country mode — names on the map, hover lifts the country as a 3D chunk showing its real satellite imagery, click to fly in
+- 💰 Salary towers — height, color and on-top label per city, top-15 clickable ranking
+- 🛡️ Safety choropleth — green (safest) to red, safety rank per country in the tooltip
+- 🛒 Living-cost choropleth — price level vs the US, affordability ranking
+- 📊 Side panel with legends, top-15 lists (click to fly there) and data source links
+- 📱 Responsive layout — panel docks to the bottom on mobile
 
 ## Run
 

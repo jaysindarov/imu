@@ -46,9 +46,20 @@ html, body {
 }
 
 .panel-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.2px;
+}
+
+.panel-header .logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(77, 163, 255, 0.55);
+  flex-shrink: 0;
 }
 
 .subtitle {

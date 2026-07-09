@@ -1,12 +1,12 @@
 /* ============================================================
- * IMU — Interactive World Globe
+ * Explore Our Earth — Interactive World Globe
  * Data sources:
  *  - Country borders: Natural Earth (via globe.gl datasets)
  *  - Crime: World Bank API, indicator VC.IHR.PSRC.P5
  *    (UNODC intentional homicides per 100,000 people)
- *  - Living cost: World Bank API, indicator PA.NUS.PPPC.RF
- *    (price level ratio of PPP conversion factor to market exchange rate)
- *  - City salaries: Numbeo 2024 published averages (js/cities-data.js)
+ *  - Living cost: Numbeo Cost of Living Index by Country,
+ *    mid-2026 snapshot (js/cost-data.js, New York City = 100)
+ *  - City salaries: Numbeo mid-2026 averages (js/cities-data.js)
  * ============================================================ */
 
 // bundled locally — external raw.githubusercontent.com is blocked on some networks
@@ -14,8 +14,6 @@ const COUNTRIES_URL = "data/countries.geojson";
 const WB = (indicator) =>
   `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&date=2014:2025&per_page=20000`;
 const WB_CRIME = "VC.IHR.PSRC.P5"; // UNODC intentional homicides per 100k
-const WB_PPP = "PA.NUS.PPP"; // PPP conversion factor (LCU per intl $)
-const WB_FX = "PA.NUS.FCRF"; // official exchange rate (LCU per US$)
 
 const TEXTURES = {
   countries: "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
@@ -28,7 +26,7 @@ const TEXTURES = {
 let globe;
 let countries = [];            // geojson features
 let crimeData = new Map();     // iso3 -> { value, year }
-let costData = new Map();      // iso3 -> { value, year }
+const costData = new Map(COUNTRY_COSTS.map((c) => [c.iso3, c])); // iso3 -> indices
 let currentMode = "countries";
 let currentTexture = "";
 let hoveredPolygon = null;
@@ -91,11 +89,12 @@ const crimeScale = makeScale([
   [0.65, "#f97316"],
   [1, "#dc2626"],
 ]);
-// teal (cheap) -> yellow -> magenta (expensive)
+// green (affordable) -> yellow -> orange -> red (expensive)
 const costScale = makeScale([
-  [0, "#14b8a6"],
-  [0.5, "#facc15"],
-  [1, "#e11d48"],
+  [0, "#22c55e"],
+  [0.4, "#eab308"],
+  [0.7, "#f97316"],
+  [1, "#dc2626"],
 ]);
 // salary tower gradient: cool low -> hot high
 const salaryScale = makeScale([
@@ -106,8 +105,10 @@ const salaryScale = makeScale([
 
 // crime normalized on sqrt scale, capped at 30 per 100k
 const crimeT = (v) => Math.sqrt(Math.min(v, 30) / 30);
-// cost price-level normalized between 0.3 and 1.3
-const costT = (v) => (Math.min(Math.max(v, 0.3), 1.3) - 0.3) / 1.0;
+// cost-of-living index (NYC = 100) normalized between 15 and 110
+const costT = (v) => (Math.min(Math.max(v, 15), 110) - 15) / 95;
+// estimated monthly cost, single person excl. rent, from the index
+const monthlyCost = (col) => (col / 100) * COL_NYC_SINGLE_USD;
 
 const MAX_SALARY = Math.max(...CITY_SALARIES.map((c) => c.salary));
 
@@ -180,22 +181,6 @@ function latestOf(series) {
     const year = Math.max(...Object.keys(byYear).map(Number));
     map.set(code, { value: byYear[year], year });
   }
-  return map;
-}
-
-// price level = PPP factor / market exchange rate, latest year where both exist
-function priceLevels(pppSeries, fxSeries) {
-  const map = new Map();
-  for (const [code, ppp] of pppSeries) {
-    const fx = fxSeries.get(code);
-    if (!fx) continue;
-    const years = Object.keys(ppp).map(Number).filter((y) => fx[y] != null);
-    if (!years.length) continue;
-    const year = Math.max(...years);
-    map.set(code, { value: ppp[year] / fx[year], year });
-  }
-  // USA is the reference: PPP factor = 1, but FCRF may be absent — pin it
-  if (!map.has("USA")) map.set("USA", { value: 1, year: 2024 });
   return map;
 }
 
@@ -349,15 +334,16 @@ function showSalaries() {
   );
 
   $("source").innerHTML =
-    'Salaries: <a href="https://www.numbeo.com/cost-of-living/" target="_blank">Numbeo</a> 2024 averages';
+    'Salaries: <a href="https://www.numbeo.com/cost-of-living/" target="_blank">Numbeo</a> mid-2026 averages';
 }
 
 function choropleth(dataMap, scaleT, colorScale, opts) {
   clearLayers();
+  const valueOf = opts.valueOf || ((d) => d.value);
   capColorFn = (f) => {
     const d = dataMap.get(iso3(f));
     if (!d) return "rgba(120,120,130,0.25)";
-    const c = colorScale(scaleT(d.value));
+    const c = colorScale(scaleT(valueOf(d)));
     return f === hoveredPolygon ? c : c.replace("rgb", "rgba").replace(")", ",0.85)");
   };
   strokeColorFn = () => "rgba(255,255,255,0.35)";
@@ -368,11 +354,7 @@ function choropleth(dataMap, scaleT, colorScale, opts) {
     .polygonLabel((f) => {
       const d = dataMap.get(iso3(f));
       if (!d) return tooltip(cname(f), [["Data", "not available"]]);
-      return tooltip(cname(f), [
-        [opts.metric, `<span class="tt-value">${opts.fmtVal(d.value)}</span>`],
-        ["Year", d.year],
-        [opts.rankLabel, opts.rankOf(iso3(f))],
-      ]);
+      return tooltip(cname(f), opts.rows(f, d));
     });
 }
 
@@ -386,11 +368,11 @@ function showCrime() {
   const rankMap = new Map(safest.map((x, i) => [iso3(x.f), i + 1]));
 
   choropleth(crimeData, crimeT, crimeScale, {
-    metric: "Homicide rate",
-    fmtVal: (v) => `${fmt(v, 1)} <span class="tt-dim">per 100k</span>`,
-    rankLabel: "Safety rank",
-    rankOf: (code) =>
-      rankMap.has(code) ? `#${rankMap.get(code)} of ${safest.length}` : "—",
+    rows: (f, d) => [
+      ["Homicide rate", `<span class="tt-value">${fmt(d.value, 1)} <span class="tt-dim">per 100k</span></span>`],
+      ["Year", d.year],
+      ["Safety rank", rankMap.has(iso3(f)) ? `#${rankMap.get(iso3(f))} of ${safest.length}` : "—"],
+    ],
   });
 
   $("legend").innerHTML = `
@@ -420,37 +402,41 @@ function showCost() {
   const joined = countries
     .map((f) => ({ f, d: costData.get(iso3(f)) }))
     .filter((x) => x.d);
-  const cheapest = [...joined].sort((a, b) => a.d.value - b.d.value);
+  const cheapest = [...joined].sort((a, b) => a.d.col - b.d.col);
   const rankMap = new Map(cheapest.map((x, i) => [iso3(x.f), i + 1]));
 
   choropleth(costData, costT, costScale, {
-    metric: "Price level",
-    fmtVal: (v) =>
-      `${fmt(v * 100, 0)} <span class="tt-dim">(US = 100)</span>`,
-    rankLabel: "Affordability rank",
-    rankOf: (code) =>
-      rankMap.has(code) ? `#${rankMap.get(code)} of ${cheapest.length}` : "—",
+    valueOf: (d) => d.col,
+    rows: (f, d) => [
+      ["Est. monthly cost", `<span class="tt-value">$${fmt(monthlyCost(d.col), 0)}</span> <span class="tt-dim">/mo, single person excl. rent</span>`],
+      ["Cost of living index", `${fmt(d.col, 1)} <span class="tt-dim">(New York = 100)</span>`],
+      ["Rent index", fmt(d.rent, 1)],
+      ["Local purchasing power", fmt(d.power, 1)],
+      ["Affordability rank", rankMap.has(iso3(f))
+        ? `#${rankMap.get(iso3(f))} cheapest of ${cheapest.length}` : "—"],
+    ],
   });
 
   $("legend").innerHTML = `
-    <div class="legend-title">Price level index (United States = 100)</div>
-    <div class="legend-bar" style="background:linear-gradient(to right,#14b8a6,#facc15,#e11d48)"></div>
-    <div class="legend-labels"><span>30 · cheapest</span><span>130+</span></div>
-    <p class="legend-note">Ratio of PPP conversion factor to market exchange
-    rate — how expensive everyday goods are vs the US. Grey = no data.</p>`;
+    <div class="legend-title">Monthly cost of living (New York = 100)</div>
+    <div class="legend-bar" style="background:linear-gradient(to right,#22c55e,#eab308,#f97316,#dc2626)"></div>
+    <div class="legend-labels"><span>~$250/mo · cheapest</span><span>~$1,850/mo</span></div>
+    <p class="legend-note">Numbeo Cost of Living Index, mid-2026. Green =
+    affordable, red = expensive. Monthly figure = estimated consumer spending
+    for a single person, excluding rent. Grey = no data.</p>`;
 
   renderRanking(
-    "Most affordable",
+    "Most affordable countries",
     cheapest.slice(0, 15).map((x) => ({
       name: cname(x.f),
-      value: fmt(x.d.value * 100, 0),
-      color: costScale(costT(x.d.value)),
+      value: "$" + fmt(monthlyCost(x.d.col), 0) + "/mo",
+      color: costScale(costT(x.d.col)),
       goto: { ...centroid(x.f), altitude: 1.4 },
     }))
   );
 
   $("source").innerHTML =
-    'Cost: <a href="https://data.worldbank.org/indicator/PA.NUS.PPPC.RF" target="_blank">World Bank ICP</a> (live)';
+    'Cost: <a href="https://www.numbeo.com/cost-of-living/rankings_by_country.jsp" target="_blank">Numbeo</a> mid-2026 index';
 }
 
 // ---------- ranking panel ----------
@@ -516,16 +502,10 @@ async function boot() {
 
   $("loaderText").textContent = "Fetching live World Bank data…";
   try {
-    const [crimeSeries, pppSeries, fxSeries] = await Promise.all([
-      fetchWBSeries(WB_CRIME),
-      fetchWBSeries(WB_PPP),
-      fetchWBSeries(WB_FX),
-    ]);
-    crimeData = latestOf(crimeSeries);
-    costData = priceLevels(pppSeries, fxSeries);
+    crimeData = latestOf(await fetchWBSeries(WB_CRIME));
   } catch (e) {
     console.error("World Bank fetch failed:", e);
-    document.querySelectorAll('[data-mode="crime"],[data-mode="cost"]').forEach((b) => {
+    document.querySelectorAll('[data-mode="crime"]').forEach((b) => {
       b.disabled = true;
       b.style.opacity = 0.4;
       b.title = "Live World Bank data unavailable (network error)";

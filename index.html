@@ -15,6 +15,9 @@
     <header class="panel-header">
       <h1><img class="logo" src="img/earth.jpg" alt="Earth" /> Explore Our Earth</h1>
       <p class="subtitle">Interactive globe of global living data</p>
+      <button class="panel-close" id="panelClose" aria-label="Hide panel" title="Hide panel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
     </header>
 
     <nav class="modes">
@@ -60,6 +63,11 @@
       <p class="source" id="source"></p>
     </footer>
   </aside>
+
+  <!-- Floating button to reopen the panel -->
+  <button class="panel-fab" id="panelOpen" aria-label="Show panel" title="Show panel">
+    <img src="img/earth.jpg" alt="" />
+  </button>
 
   <!-- Loading overlay -->
   <div class="loader" id="loader">

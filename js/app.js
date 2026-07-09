@@ -522,6 +522,16 @@ async function boot() {
   $("rotateToggle").addEventListener("change", (e) => {
     globe.controls().autoRotate = e.target.checked;
   });
+
+  // collapsible panel; remembered across visits
+  const setPanel = (collapsed) => {
+    $("panel").classList.toggle("collapsed", collapsed);
+    $("panelOpen").classList.toggle("visible", collapsed);
+    localStorage.setItem("panelCollapsed", collapsed ? "1" : "0");
+  };
+  $("panelClose").addEventListener("click", () => setPanel(true));
+  $("panelOpen").addEventListener("click", () => setPanel(false));
+  if (localStorage.getItem("panelCollapsed") === "1") setPanel(true);
 }
 
 boot();
